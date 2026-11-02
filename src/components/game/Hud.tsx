@@ -12,6 +12,7 @@ type Props = {
 
 export function Hud({ hud, heroName, isMuted, onToggleMute, onPause, onFullscreen }: Props) {
   const hearts = Array.from({ length: hud.maxHearts }, (_, i) => i < hud.hearts);
+  const canFullscreen = document.fullscreenEnabled;
   return (
     <div className={styles.hud}>
       <div className={styles.hudLeft}>
@@ -40,9 +41,11 @@ export function Hud({ hud, heroName, isMuted, onToggleMute, onPause, onFullscree
         <button type="button" className={styles.hudButton} onClick={onToggleMute} aria-label={isMuted ? "Ligar som" : "Desligar som"}>
           {isMuted ? "🔇" : "🔊"}
         </button>
-        <button type="button" className={styles.hudButton} onClick={onFullscreen} aria-label="Tela cheia">
-          ⛶
-        </button>
+        {canFullscreen && (
+          <button type="button" className={styles.hudButton} onClick={onFullscreen} aria-label="Tela cheia">
+            ⛶
+          </button>
+        )}
         <button type="button" className={styles.hudButton} onClick={onPause} aria-label="Pausar">
           ❚❚
         </button>

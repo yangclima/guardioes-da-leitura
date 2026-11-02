@@ -1,0 +1,151 @@
+/* ---------- Touch controls ---------- */
+/*
+ * Thumb zones: movement on the left, actions on the right, anchored to the
+ * screen corners (not the canvas) so they sit in the letterbox gutters when
+ * there are any. Translucent so the level stays readable underneath.
+ */
+.touch {
+  --ctl-ink: rgba(27, 21, 48, 0.72);
+  --ctl-fill: rgba(255, 255, 255, 0.3);
+  --ctl-on: rgba(255, 210, 63, 0.9);
+  position: absolute;
+  inset: auto max(14px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dpad {
+  pointer-events: auto;
+  position: relative;
+  width: clamp(150px, 42vmin, 220px);
+  height: clamp(70px, 20vmin, 96px);
+  border-radius: 999px;
+  background: var(--ctl-fill);
+  border: 3px solid var(--ctl-ink);
+  box-shadow: 3px 3px 0 var(--ctl-ink);
+  backdrop-filter: blur(3px);
+  touch-action: none;
+}
+
+.dpadFly {
+  width: clamp(130px, 38vmin, 190px);
+  height: clamp(130px, 38vmin, 190px);
+  border-radius: 50%;
+}
+
+.padArrow {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 40%;
+  height: 100%;
+  color: var(--ink);
+  font-size: clamp(1.3rem, 6vmin, 1.9rem);
+  pointer-events: none;
+  transition: transform var(--duration-fast) var(--ease-pop);
+}
+
+.arrow_left {
+  left: 0;
+  top: 0;
+}
+
+.arrow_right {
+  right: 0;
+  top: 0;
+}
+
+.arrow_up {
+  top: 0;
+  left: 32%;
+}
+
+.arrow_down {
+  bottom: 0;
+  left: 32%;
+}
+
+.dpadFly .padArrow {
+  width: 36%;
+  height: 36%;
+}
+
+.dpadFly .arrow_left,
+.dpadFly .arrow_right {
+  top: 32%;
+}
+
+.padArrowOn {
+  color: var(--violet-deep);
+  transform: scale(1.3);
+  text-shadow: 0 0 10px var(--ctl-on);
+}
+
+.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(10px, 3vmin, 18px);
+}
+
+.action {
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 3px solid var(--ctl-ink);
+  box-shadow: 3px 3px 0 var(--ctl-ink);
+  backdrop-filter: blur(3px);
+  color: var(--ink);
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform 80ms ease-out, background 80ms;
+}
+
+/* The main verb is the biggest and closest to the thumb's resting spot. */
+.actionPrimary {
+  width: clamp(76px, 24vmin, 112px);
+  height: clamp(76px, 24vmin, 112px);
+  font-size: clamp(1.8rem, 8vmin, 2.6rem);
+  background: rgba(255, 210, 63, 0.42);
+}
+
+/* The secondary verb sits up-and-left of the primary, on the thumb's natural arc. */
+.actionSecondary {
+  width: clamp(58px, 17vmin, 80px);
+  height: clamp(58px, 17vmin, 80px);
+  margin-bottom: clamp(36px, 12vmin, 64px);
+  font-size: clamp(1.3rem, 6vmin, 1.8rem);
+  background: rgba(167, 139, 250, 0.42);
+}
+
+.actionOn {
+  background: var(--ctl-on);
+  transform: translate(2px, 2px) scale(0.94);
+  box-shadow: 1px 1px 0 var(--ctl-ink);
+}
+
+/* Portrait (player chose not to rotate): controls take the empty space below the canvas. */
+@media (orientation: portrait) {
+  .touch {
+    --ctl-fill: rgba(255, 255, 255, 0.92);
+    position: static;
+    width: 100%;
+    padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+  }
+
+  .actionPrimary {
+    background: var(--sun);
+  }
+
+  .actionSecondary {
+    background: #ddd6fe;
+  }
+}

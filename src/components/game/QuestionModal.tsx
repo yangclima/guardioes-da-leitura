@@ -77,7 +77,13 @@ export function QuestionModal({ slug, runToken, question, index, total, onDone }
 
   return (
     <div className={styles.modalBackdrop}>
-      <div ref={dialogRef} className={styles.questionCard} role="dialog" aria-modal="true" aria-labelledby="question-prompt">
+      <div
+        ref={dialogRef}
+        className={question.supportText ? `${styles.questionCard} ${styles.questionSplit}` : styles.questionCard}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="question-prompt"
+      >
         <header className={styles.questionHead}>
           <span className={styles.badge}>Desafio {index + 1}/{total}</span>
           {question.descriptor && <span className={`${styles.badge} ${styles.badgeAlt}`}>{question.descriptor}</span>}

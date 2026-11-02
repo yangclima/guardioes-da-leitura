@@ -1,6 +1,7 @@
 import type { Hero } from "./heroes";
-import { drawHairBack, drawHairFront, drawHeadgear } from "./heroHair";
-import { ballGrad, capsule, cartoonEye, dropShadow, ink, OUTLINE, shade, vGrad } from "./paint";
+import { drawHairBack, drawHairFront } from "./heroHair";
+import { drawGlasses, drawHeadgear, drawHeadgearBack, drawPack, drawShield, drawWeapon, WEAPON_REACH, WEAPON_REST } from "./heroGear";
+import { ballGrad, dropShadow, LIGHT, pen, shade, SHADOW, softSpot, vGrad, WARM_INK } from "./paint";
 
 export { OUTLINE } from "./paint";
 
@@ -38,6 +39,8 @@ const THIGH = 11.5;
 const SHIN = 11;
 const UPPER_ARM = 9.5;
 const FOREARM = 9;
+const SHOULDER_F = { x: 4.5, y: -40 };
+const SHOULDER_B = { x: -2.5, y: -40 };
 export const HEAD = { x: 2, y: -57, r: 16.5 };
 
 function rigFor(pose: Pose): Rig {
@@ -50,24 +53,24 @@ function rigFor(pose: Pose): Rig {
         kneeF: 0.15 + 1.35 * Math.max(0, Math.cos(p)),
         thighB: 0.85 * Math.sin(p),
         kneeB: 0.15 + 1.35 * Math.max(0, -Math.cos(p)),
-        armF: 0.75 * Math.sin(p),
-        elbowF: -0.95,
-        armB: -0.75 * Math.sin(p),
-        elbowB: -0.95,
+        armF: -0.3 + 0.55 * Math.sin(p),
+        elbowF: -1.0,
+        armB: 0.2 - 0.5 * Math.sin(p),
+        elbowB: -0.5,
         lean: 0.14,
         bob: -Math.abs(Math.sin(p)) * 2.4,
         mouth: "grin",
         brow: 0,
       };
     case "jump":
-      return { thighF: -1.0, kneeF: 1.5, thighB: 0.35, kneeB: 0.9, armF: -1.9, elbowF: -0.35, armB: -2.5, elbowB: -0.4, lean: 0.05, bob: 0, mouth: "open", brow: -1 };
+      return { thighF: -1.0, kneeF: 1.5, thighB: 0.35, kneeB: 0.9, armF: -1.9, elbowF: -0.35, armB: -1.2, elbowB: -0.4, lean: 0.05, bob: 0, mouth: "open", brow: -1 };
     case "fall":
-      return { thighF: -0.35, kneeF: 0.4, thighB: 0.45, kneeB: 0.7, armF: -1.9, elbowF: -0.5, armB: -1.3, elbowB: -0.6, lean: -0.04, bob: 0, mouth: "open", brow: 1 };
+      return { thighF: -0.35, kneeF: 0.4, thighB: 0.45, kneeB: 0.7, armF: -1.7, elbowF: -0.5, armB: -0.9, elbowB: -0.6, lean: -0.04, bob: 0, mouth: "open", brow: 1 };
     case "hurt":
-      return { thighF: -0.5, kneeF: 0.6, thighB: 0.5, kneeB: 0.4, armF: -2.4, elbowF: 0.4, armB: 2.2, elbowB: -0.3, lean: -0.2, bob: 0, mouth: "ouch", brow: 1 };
+      return { thighF: -0.5, kneeF: 0.6, thighB: 0.5, kneeB: 0.4, armF: -2.2, elbowF: 0.4, armB: 1.4, elbowB: -0.3, lean: -0.2, bob: 0, mouth: "ouch", brow: 1 };
     default: {
       const breathe = Math.sin(t * 2.6);
-      return { thighF: -0.06, kneeF: 0.08, thighB: 0.08, kneeB: 0.08, armF: 0.12 + breathe * 0.04, elbowF: -0.25, armB: -0.08, elbowB: -0.3, lean: 0, bob: breathe * 0.9, mouth: "smile", brow: 0 };
+      return { thighF: -0.1, kneeF: 0.1, thighB: 0.12, kneeB: 0.08, armF: -0.35 + breathe * 0.04, elbowF: -0.9, armB: 0.25, elbowB: -0.3, lean: 0, bob: breathe * 0.9, mouth: "smile", brow: 0 };
     }
   }
 }
@@ -81,244 +84,273 @@ function limbPoints(x: number, y: number, a: number, bend: number, l1: number, l
   return { jx, jy, ex, ey };
 }
 
-function drawLeg(ctx: CanvasRenderingContext2D, hero: Hero, hipX: number, thigh: number, knee: number, back: boolean): void {
-  const pants = back ? shade(hero.pants, -28) : hero.pants;
-  const { jx, jy, ex, ey } = limbPoints(hipX, HIP_Y, thigh, knee, THIGH, SHIN);
-  capsule(ctx, hipX, HIP_Y, jx, jy, 9.5, pants);
-  capsule(ctx, jx, jy, ex, ey, 8.5, shade(pants, back ? 0 : -8));
-  // Sneaker: stays mostly level so the foot reads clearly.
-  const shoe = back ? shade(hero.shoes, -35) : hero.shoes;
+/** A limb segment shaded across its width so it reads as a rounded volume. */
+function roundLimb(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, w: number, base: string): void {
   ctx.save();
-  ctx.translate(ex, ey + 1);
-  ctx.rotate(-(thigh + knee) * 0.35);
+  ctx.translate(x1, y1);
+  ctx.rotate(Math.atan2(y2 - y1, x2 - x1));
+  const g = ctx.createLinearGradient(0, -w / 2, 0, w / 2);
+  g.addColorStop(0, shade(base, 28));
+  g.addColorStop(0.45, base);
+  g.addColorStop(1, shade(base, -32));
   ctx.beginPath();
-  ctx.moveTo(-5, -4.5);
-  ctx.quadraticCurveTo(3, -6.5, 8, -2.5);
-  ctx.quadraticCurveTo(11.5, 0, 10, 3);
-  ctx.lineTo(-5.5, 3);
-  ctx.quadraticCurveTo(-7, -1, -5, -4.5);
-  ctx.closePath();
-  ink(ctx, shoe, 2.3);
-  ctx.fillStyle = back ? "#cbd5e1" : "#ffffff";
-  ctx.fillRect(-5, 1, 15, 2);
-  ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(-5.5, 3);
-  ctx.lineTo(10, 3);
-  ctx.moveTo(0, -5);
-  ctx.lineTo(2, -2.5);
-  ctx.moveTo(3, -5.5);
-  ctx.lineTo(5, -3);
-  ctx.stroke();
+  ctx.roundRect(-w / 2, -w / 2, Math.hypot(x2 - x1, y2 - y1) + w, w, w / 2);
+  pen(ctx, g);
   ctx.restore();
 }
 
-function drawArm(ctx: CanvasRenderingContext2D, hero: Hero, sx: number, sy: number, arm: number, elbow: number, back: boolean, cast: number): { hx: number; hy: number } {
-  const sleeve = back ? shade(hero.shirt, -32) : hero.shirt;
-  const skin = back ? shade(hero.skin, -22) : hero.skin;
-  const { jx, jy, ex, ey } = limbPoints(sx, sy, arm, elbow, UPPER_ARM, FOREARM);
-  capsule(ctx, jx, jy, ex, ey, 6.5, skin);
-  capsule(ctx, sx, sy, jx, jy, 8, sleeve);
+function drawBootFoot(ctx: CanvasRenderingContext2D, leather: string, x: number, y: number, tilt: number): void {
+  ctx.save();
+  ctx.translate(x, y + 1);
+  ctx.rotate(tilt);
   ctx.beginPath();
-  ctx.arc(ex, ey + 0.5, cast > 0 && !back ? 4.6 : 3.9, 0, Math.PI * 2);
-  ink(ctx, skin, 2.2);
+  ctx.moveTo(-5.5, -5);
+  ctx.quadraticCurveTo(2, -6.5, 7, -3.5);
+  ctx.quadraticCurveTo(12, -2, 11.5, 1.5);
+  ctx.lineTo(11, 3.5);
+  ctx.lineTo(-6, 3.5);
+  ctx.quadraticCurveTo(-7.5, -1, -5.5, -5);
+  ctx.closePath();
+  pen(ctx, vGrad(ctx, -6, 4, leather, 25, -30));
+  ctx.fillStyle = shade(leather, -50);
+  ctx.fillRect(-6, 1.6, 17, 2);
+  softSpot(ctx, 5, -3, 4, LIGHT, 0.35);
+  ctx.restore();
+}
+
+function drawLeg(ctx: CanvasRenderingContext2D, hero: Hero, hipX: number, thigh: number, knee: number, back: boolean): void {
+  const dim = back ? -26 : 0;
+  const leather = shade(hero.leather, dim);
+  const { jx, jy, ex, ey } = limbPoints(hipX, HIP_Y, thigh, knee, THIGH, SHIN);
+  roundLimb(ctx, hipX, HIP_Y, jx, jy, 9.5, shade(hero.trousers, dim));
+  // Chunky leather boot from just under the knee.
+  const bx = jx + (ex - jx) * 0.2;
+  const by = jy + (ey - jy) * 0.2;
+  roundLimb(ctx, bx, by, ex, ey, 9.5, leather);
+  drawBootFoot(ctx, leather, ex, ey, -(thigh + knee) * 0.35);
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.rotate(Math.atan2(ey - by, ex - bx) - Math.PI / 2);
+  ctx.beginPath();
+  ctx.roundRect(-6.2, -2.5, 12.4, 4.6, 2);
+  pen(ctx, shade(leather, 18), 1.5);
+  ctx.restore();
+}
+
+/** Sleeve, leather bracer and hand. Returns the hand position. */
+function drawArm(ctx: CanvasRenderingContext2D, hero: Hero, sx: number, sy: number, arm: number, elbow: number, back: boolean): { hx: number; hy: number } {
+  const dim = back ? -28 : 0;
+  const { jx, jy, ex, ey } = limbPoints(sx, sy, arm, elbow, UPPER_ARM, FOREARM);
+  roundLimb(ctx, jx, jy, ex, ey, 7, shade(hero.leather, dim + 8));
+  roundLimb(ctx, sx, sy, jx, jy, 8.5, shade(hero.tunic, dim));
+  ctx.beginPath();
+  ctx.arc(ex, ey + 0.5, 4.1, 0, Math.PI * 2);
+  pen(ctx, ballGrad(ctx, ex, ey, 4.1, shade(hero.skin, dim), 25, -30));
   return { hx: ex, hy: ey };
 }
 
-function drawTorso(ctx: CanvasRenderingContext2D, hero: Hero): void {
-  // Neck
-  ctx.beginPath();
-  ctx.roundRect(-3, -47, 8, 7, 3);
-  ink(ctx, shade(hero.skin, -18), 2);
-
+function tunicPath(ctx: CanvasRenderingContext2D, flare: number): void {
   ctx.beginPath();
   ctx.moveTo(-9.5, -41);
   ctx.quadraticCurveTo(1, -46, 11, -41);
-  ctx.quadraticCurveTo(12.5, -33, 10, -25);
-  ctx.quadraticCurveTo(0.5, -22.5, -8.5, -25);
-  ctx.quadraticCurveTo(-11, -33, -9.5, -41);
+  ctx.quadraticCurveTo(13, -33, 11.5, -27);
+  ctx.quadraticCurveTo(14 + flare, -21, 14.5 + flare, -16);
+  ctx.quadraticCurveTo(1.5, -13.5, -11.5 - flare, -16);
+  ctx.quadraticCurveTo(-11.5 - flare, -21, -9, -27);
+  ctx.quadraticCurveTo(-11.5, -33, -9.5, -41);
   ctx.closePath();
-  ink(ctx, vGrad(ctx, -45, -24, hero.shirt, 28, -30));
+}
 
+function drawTorso(ctx: CanvasRenderingContext2D, hero: Hero, flare: number): void {
+  ctx.beginPath();
+  ctx.roundRect(-3, -47, 8, 7, 3);
+  pen(ctx, shade(hero.skin, -20));
+
+  tunicPath(ctx, flare);
+  pen(ctx, vGrad(ctx, -45, -15, hero.tunic, 26, -34));
   ctx.save();
   ctx.clip();
-  // Cel shadow on the back half, rim light on the front.
-  ctx.fillStyle = "rgba(20,10,50,0.18)";
-  ctx.fillRect(-14, -48, 8, 30);
-  ctx.fillStyle = "rgba(255,255,255,0.22)";
-  ctx.fillRect(7, -44, 3, 18);
-  // Collar
-  ctx.fillStyle = shade(hero.shirt, -40);
+  softSpot(ctx, -12, -30, 11, SHADOW, 0.35);
+  softSpot(ctx, 7, -38, 8, LIGHT, 0.28);
+  softSpot(ctx, 3, -42, 8, SHADOW, 0.3);
+  // Trim along the hem
+  ctx.fillStyle = shade(hero.accent, -15);
+  ctx.fillRect(-16, -18.5, 34, 2.6);
+  // Laced collar
+  ctx.fillStyle = shade(hero.tunic, -38);
   ctx.beginPath();
-  ctx.moveTo(-5, -43);
-  ctx.quadraticCurveTo(1, -36, 7, -43);
-  ctx.lineTo(7, -45);
-  ctx.lineTo(-5, -45);
+  ctx.moveTo(-3, -44);
+  ctx.lineTo(1.5, -36);
+  ctx.lineTo(6, -44);
   ctx.fill();
-  // Emblem: an open book, the guardian symbol.
-  ctx.fillStyle = hero.accent;
-  ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = 1.3;
+  ctx.strokeStyle = shade(hero.accent, 20);
+  ctx.lineWidth = 0.9;
   ctx.beginPath();
-  ctx.moveTo(1, -34);
-  ctx.quadraticCurveTo(4, -36, 7, -35);
-  ctx.lineTo(7, -29.5);
-  ctx.quadraticCurveTo(4, -30.5, 1, -28.5);
-  ctx.quadraticCurveTo(-2, -30.5, -5, -29.5);
-  ctx.lineTo(-5, -35);
-  ctx.quadraticCurveTo(-2, -36, 1, -34);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(1, -34);
-  ctx.lineTo(1, -28.5);
+  ctx.moveTo(-0.5, -41.5);
+  ctx.lineTo(3.5, -40);
+  ctx.moveTo(3.5, -41.5);
+  ctx.lineTo(-0.5, -40);
   ctx.stroke();
   ctx.restore();
 
-  // Belt
+  // Belt, buckle and a little pouch
   ctx.beginPath();
-  ctx.roundRect(-9, -27.5, 19.5, 5, 2);
-  ink(ctx, shade(hero.pants, -30), 2);
+  ctx.roundRect(-10, -28.5, 22.5, 4.6, 2);
+  pen(ctx, vGrad(ctx, -28.5, -24, shade(hero.leather, -15), 20, -25), 1.6);
   ctx.beginPath();
-  ctx.roundRect(4, -27, 4, 4, 1);
-  ink(ctx, "#facc15", 1.2);
+  ctx.roundRect(5, -28.2, 4.2, 4, 1);
+  pen(ctx, hero.accent, 1.2);
+  ctx.beginPath();
+  ctx.roundRect(-8.5, -25.5, 6, 6.5, [1, 1, 3, 3]);
+  pen(ctx, vGrad(ctx, -25.5, -19, hero.leather, 20, -30), 1.4);
+}
+
+function drawEyes(ctx: CanvasRenderingContext2D, hero: Hero, rig: Rig, t: number): void {
+  const { x: hx, y: hy } = HEAD;
+  const eyeY = hy + 2;
+  const blink = t % 3.6 > 3.48;
+  ctx.strokeStyle = WARM_INK;
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = "round";
+  if (rig.mouth === "ouch") {
+    ctx.beginPath();
+    for (const [ex, d] of [[hx + 10, -1], [hx + 1.5, 1]] as const) {
+      ctx.moveTo(ex - 2.2 * d, eyeY - 2.2);
+      ctx.lineTo(ex + 1.8 * d, eyeY);
+      ctx.lineTo(ex - 2.2 * d, eyeY + 2.2);
+    }
+    ctx.stroke();
+  } else if (blink) {
+    ctx.beginPath();
+    ctx.moveTo(hx + 8, eyeY + 0.5);
+    ctx.quadraticCurveTo(hx + 10, eyeY + 1.8, hx + 12, eyeY + 0.5);
+    ctx.moveTo(hx, eyeY + 0.5);
+    ctx.quadraticCurveTo(hx + 1.5, eyeY + 1.6, hx + 3, eyeY + 0.5);
+    ctx.stroke();
+  } else {
+    // Small painted eyes: dark iris, one catch-light.
+    for (const [ex, rx, ry] of [[hx + 1.5, 1.8, 2.5], [hx + 10, 2.2, 2.9]] as const) {
+      ctx.fillStyle = shade(hero.eyes, -25);
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff8ec";
+      ctx.beginPath();
+      ctx.arc(ex + rx * 0.3, eyeY - ry * 0.4, rx * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // Thick brows carry the mood.
+  ctx.strokeStyle = shade(hero.hair, -10);
+  ctx.lineWidth = 2.3;
+  ctx.beginPath();
+  ctx.moveTo(hx + 7, hy - 3 + rig.brow * 0.7);
+  ctx.quadraticCurveTo(hx + 10, hy - 4.8 - rig.brow * 0.3, hx + 13, hy - 3.2 - rig.brow * 0.7);
+  ctx.moveTo(hx - 1, hy - 2.8 - rig.brow * 0.7);
+  ctx.quadraticCurveTo(hx + 1.5, hy - 4.4 - rig.brow * 0.3, hx + 4, hy - 3 + rig.brow * 0.7);
+  ctx.stroke();
+}
+
+function drawMouth(ctx: CanvasRenderingContext2D, rig: Rig): void {
+  const mx = HEAD.x + 10.5;
+  const my = HEAD.y + 10.5;
+  ctx.strokeStyle = WARM_INK;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  if (rig.mouth === "smile") {
+    ctx.arc(mx, my - 2, 2.6, 0.3, Math.PI - 0.4);
+    ctx.stroke();
+  } else if (rig.mouth === "grin") {
+    ctx.moveTo(mx - 3.3, my - 1);
+    ctx.quadraticCurveTo(mx, my - 1.6, mx + 3.3, my - 1.3);
+    ctx.quadraticCurveTo(mx + 1, my + 3.5, mx - 3.3, my - 1);
+    ctx.closePath();
+    pen(ctx, "#7a2a1e", 1.3);
+  } else if (rig.mouth === "open") {
+    ctx.ellipse(mx, my, 1.9, 2.4, 0, 0, Math.PI * 2);
+    pen(ctx, "#7a2a1e", 1.3);
+  } else {
+    ctx.moveTo(mx - 3, my);
+    ctx.quadraticCurveTo(mx - 1.5, my - 1.8, mx, my);
+    ctx.quadraticCurveTo(mx + 1.5, my + 1.8, mx + 3, my);
+    ctx.stroke();
+  }
 }
 
 function drawFace(ctx: CanvasRenderingContext2D, hero: Hero, rig: Rig, t: number): void {
   const { x: hx, y: hy } = HEAD;
-  const blink = t % 3.6 > 3.48;
-  const hurt = rig.mouth === "ouch";
-
-  // Cheeks
-  ctx.fillStyle = "rgba(255,105,120,0.35)";
+  softSpot(ctx, hx + 12.5, hy + 7.5, 4.5, [235, 110, 90], 0.4);
+  softSpot(ctx, hx - 1, hy + 7, 3.5, [235, 110, 90], 0.3);
+  drawEyes(ctx, hero, rig, t);
+  // Round button nose poking past the cheek.
   ctx.beginPath();
-  ctx.ellipse(hx + 12.5, hy + 6, 3.4, 2, 0, 0, Math.PI * 2);
-  ctx.ellipse(hx - 2.5, hy + 6, 2.6, 1.8, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Eyes (three-quarter view: the far eye is a bit narrower)
-  const eyeY = hy + 0.5;
-  if (hurt) {
-    ctx.strokeStyle = OUTLINE;
-    ctx.lineWidth = 2;
-    for (const [ex, s] of [[hx + 9.5, 3], [hx + 1, 2.4]] as const) {
-      ctx.beginPath();
-      ctx.moveTo(ex - s, eyeY - s);
-      ctx.lineTo(ex + s, eyeY + s);
-      ctx.moveTo(ex + s, eyeY - s);
-      ctx.lineTo(ex - s, eyeY + s);
-      ctx.stroke();
-    }
-  } else if (blink) {
-    ctx.strokeStyle = OUTLINE;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(hx + 9.5, eyeY - 1, 3, 0.2, Math.PI - 0.2);
-    ctx.moveTo(hx + 3.3, eyeY);
-    ctx.arc(hx + 1, eyeY - 1, 2.4, 0.2, Math.PI - 0.2);
-    ctx.stroke();
-  } else {
-    cartoonEye(ctx, hx + 1, eyeY, 2.5, 3.9, hero.eyes, 0.5);
-    cartoonEye(ctx, hx + 9.5, eyeY, 3.1, 4.2, hero.eyes, 0.45);
-  }
-
-  // Brows show the mood.
-  ctx.strokeStyle = shade(hero.hair, -10);
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(hx + 6.5, hy - 5.5 + rig.brow * 0.6);
-  ctx.quadraticCurveTo(hx + 9.5, hy - 7.5 - rig.brow * 0.4, hx + 12.5, hy - 5.8 - rig.brow * 0.6);
-  ctx.moveTo(hx - 1.5, hy - 5.2 - rig.brow * 0.6);
-  ctx.quadraticCurveTo(hx + 1, hy - 6.8 - rig.brow * 0.4, hx + 3.5, hy - 5.5 + rig.brow * 0.6);
-  ctx.stroke();
-
-  // Nose
-  ctx.strokeStyle = shade(hero.skin, -45);
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(hx + 15.5, hy + 1);
-  ctx.quadraticCurveTo(hx + 17.5, hy + 4, hx + 14.5, hy + 4.5);
-  ctx.stroke();
-
-  // Mouth
-  const mx = hx + 9.5;
-  const my = hy + 9;
-  ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  if (rig.mouth === "smile") {
-    ctx.arc(mx, my - 2.5, 3.2, 0.25, Math.PI - 0.35);
-    ctx.stroke();
-  } else if (rig.mouth === "grin") {
-    ctx.moveTo(mx - 3.8, my - 1);
-    ctx.quadraticCurveTo(mx, my - 1.8, mx + 3.8, my - 1.4);
-    ctx.quadraticCurveTo(mx + 1, my + 4, mx - 3.8, my - 1);
-    ctx.closePath();
-    ink(ctx, "#7f1d1d", 1.6);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(mx - 2.6, my - 1.2, 5, 1.4);
-  } else if (rig.mouth === "open") {
-    ctx.ellipse(mx, my, 2.2, 2.8, 0, 0, Math.PI * 2);
-    ink(ctx, "#7f1d1d", 1.6);
-  } else {
-    ctx.moveTo(mx - 3.5, my);
-    ctx.quadraticCurveTo(mx - 1.7, my - 2, mx, my);
-    ctx.quadraticCurveTo(mx + 1.7, my + 2, mx + 3.5, my);
-    ctx.stroke();
-  }
+  ctx.ellipse(hx + 15, hy + 5, 2.5, 2.2, 0, 0, Math.PI * 2);
+  pen(ctx, ballGrad(ctx, hx + 15, hy + 5, 2.5, shade(hero.skin, -4), 35, -25), 1.1);
+  softSpot(ctx, hx + 15, hy + 5.5, 2.2, [230, 100, 80], 0.2);
+  drawMouth(ctx, rig);
 }
 
 function drawHead(ctx: CanvasRenderingContext2D, hero: Hero, rig: Rig, t: number, running: boolean): void {
   const { x: hx, y: hy, r } = HEAD;
   ctx.beginPath();
   ctx.ellipse(hx, hy, r, r * 0.96, 0, 0, Math.PI * 2);
-  ink(ctx, ballGrad(ctx, hx + 4, hy, r, hero.skin, 30, -30));
-  // Jaw shadow under the hair line keeps the head from looking flat.
+  pen(ctx, ballGrad(ctx, hx + 5, hy + 1, r, hero.skin, 28, -34), 2);
   ctx.save();
   ctx.clip();
-  ctx.fillStyle = "rgba(60,20,30,0.12)";
-  ctx.beginPath();
-  ctx.ellipse(hx - 9, hy + 2, 9, 17, 0, 0, Math.PI * 2);
-  ctx.fill();
+  softSpot(ctx, hx - 10, hy + 4, 13, SHADOW, 0.25);
+  softSpot(ctx, hx + 2, hy + 18, 10, SHADOW, 0.2);
   ctx.restore();
   // Ear
   ctx.beginPath();
-  ctx.ellipse(hx - 6.5, hy + 2, 3.6, 4.6, 0.1, 0, Math.PI * 2);
-  ink(ctx, shade(hero.skin, -10), 2);
-  ctx.strokeStyle = shade(hero.skin, -45);
-  ctx.lineWidth = 1.2;
+  ctx.ellipse(hx - 6.5, hy + 3, 3.5, 4.5, 0.1, 0, Math.PI * 2);
+  pen(ctx, shade(hero.skin, -12), 1.6);
+  ctx.strokeStyle = shade(hero.skin, -50);
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(hx - 6.2, hy + 2, 1.8, -1.2, 1.4);
+  ctx.arc(hx - 6.2, hy + 3, 1.7, -1.2, 1.4);
   ctx.stroke();
 
   drawFace(ctx, hero, rig, t);
   drawHairFront(ctx, hero, t, running);
   drawHeadgear(ctx, hero);
+  if (hero.glasses) drawGlasses(ctx);
 }
 
 function castGlow(ctx: CanvasRenderingContext2D, x: number, y: number, cast: number, color: string): void {
   if (cast <= 0) return;
   const r = 9 + cast * 9;
   const g = ctx.createRadialGradient(x, y, 1, x, y, r);
-  g.addColorStop(0, "rgba(255,255,255,0.95)");
+  g.addColorStop(0, "rgba(255,252,235,0.95)");
   g.addColorStop(0.4, color);
-  g.addColorStop(1, "rgba(167,139,250,0)");
+  g.addColorStop(1, "rgba(255,210,120,0)");
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
 }
 
+/** Everything behind the body: pack, hair volume, hood drape, shield arm. */
+function drawBackLayer(ctx: CanvasRenderingContext2D, hero: Hero, rig: Rig, pose: Pose, running: boolean): void {
+  ctx.save();
+  ctx.translate(0, HIP_Y);
+  ctx.rotate(rig.lean);
+  ctx.translate(0, -HIP_Y);
+  if (hero.pack) drawPack(ctx, hero);
+  drawHairBack(ctx, hero, pose.t, running);
+  drawHeadgearBack(ctx, hero);
+  const hand = drawArm(ctx, hero, SHOULDER_B.x, SHOULDER_B.y, rig.armB, rig.elbowB, true);
+  if (hero.shield) drawShield(ctx, hero, hand.hx - 4, hand.hy - 3);
+  ctx.restore();
+}
+
 /** Draws a hero with its feet at (x, y). */
 export function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, x: number, y: number, pose: Pose): void {
   const rig = rigFor(pose);
   const cast = pose.cast ?? 0;
+  const castK = Math.min(1, cast * 1.6);
   if (cast > 0 && pose.state !== "hurt") {
-    // Arm snaps forward when the shot leaves the hand.
-    rig.armF = -1.5 * Math.min(1, cast * 1.6) + rig.armF * (1 - Math.min(1, cast * 1.6));
+    // Arm snaps forward when the shot leaves the weapon.
+    rig.armF = -1.5 * castK + rig.armF * (1 - castK);
     rig.elbowF = rig.elbowF * (1 - cast);
     rig.brow = -1;
   }
@@ -328,19 +360,11 @@ export function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, x: number, y
 
   ctx.save();
   ctx.translate(x, y);
-  dropShadow(ctx, 0, 0, 15, 0.22);
+  dropShadow(ctx, 0, 0, 16, 0.24);
   ctx.scale(pose.facing * sx, sy);
   ctx.translate(0, rig.bob);
 
-  // Back layer
-  ctx.save();
-  ctx.translate(0, HIP_Y);
-  ctx.rotate(rig.lean);
-  ctx.translate(0, -HIP_Y);
-  drawHairBack(ctx, hero, pose.t, running);
-  drawArm(ctx, hero, -2.5, -40, rig.armB, rig.elbowB, true, 0);
-  ctx.restore();
-
+  drawBackLayer(ctx, hero, rig, pose, running);
   drawLeg(ctx, hero, -3, rig.thighB, rig.kneeB, true);
   drawLeg(ctx, hero, 3.5, rig.thighF, rig.kneeF, false);
 
@@ -348,11 +372,17 @@ export function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, x: number, y
   ctx.translate(0, HIP_Y);
   ctx.rotate(rig.lean + (pose.state === "hurt" ? -0.12 : 0));
   ctx.translate(0, -HIP_Y);
-  drawTorso(ctx, hero);
+  drawTorso(ctx, hero, running ? Math.sin(pose.t * 13) * 1.2 : 0);
+
+  const elbow = limbPoints(SHOULDER_F.x, SHOULDER_F.y, rig.armF, rig.elbowF, UPPER_ARM, FOREARM);
+  const rest = WEAPON_REST[hero.weapon] + rig.armF * 0.3;
+  const angle = rest * (1 - castK) - 0.1 * castK;
+  drawWeapon(ctx, hero, elbow.ex, elbow.ey, angle);
   // The arm goes under the head so a raised hand never hides the face.
-  const hand = drawArm(ctx, hero, 4.5, -40, rig.armF, rig.elbowF, false, cast);
+  const hand = drawArm(ctx, hero, SHOULDER_F.x, SHOULDER_F.y, rig.armF, rig.elbowF, false);
   drawHead(ctx, hero, rig, pose.t, running);
-  castGlow(ctx, hand.hx + 4, hand.hy, cast, hero.accent);
+  const reach = WEAPON_REACH[hero.weapon];
+  castGlow(ctx, hand.hx + Math.cos(angle) * reach, hand.hy + Math.sin(angle) * reach, cast, hero.accent);
   ctx.restore();
 }
 
@@ -377,7 +407,7 @@ export function drawHeroPlane(ctx: CanvasRenderingContext2D, hero: Hero, x: numb
   ctx.quadraticCurveTo(-8, -18, -2, -15);
   ctx.lineTo(10, -3);
   ctx.closePath();
-  ink(ctx, shade(hero.shirt, -40));
+  pen(ctx, shade(hero.tunic, -40));
 
   // Pilot (head + shoulders) in the cockpit
   ctx.save();
@@ -386,18 +416,10 @@ export function drawHeroPlane(ctx: CanvasRenderingContext2D, hero: Hero, x: numb
   const rig: Rig = { ...rigFor({ state: "idle", t, facing: 1, squash: 0 }), mouth: hurt ? "ouch" : cast > 0 ? "open" : "grin", brow: hurt ? 1 : -0.5 };
   ctx.beginPath();
   ctx.roundRect(-10, -44, 22, 20, 8);
-  ink(ctx, vGrad(ctx, -44, -24, hero.shirt));
+  pen(ctx, vGrad(ctx, -44, -24, hero.tunic));
   drawHairBack(ctx, hero, t, true);
+  drawHeadgearBack(ctx, hero);
   drawHead(ctx, hero, rig, t, true);
-  // Flight goggles pushed up on the forehead
-  ctx.beginPath();
-  ctx.ellipse(HEAD.x + 4, HEAD.y - 9, 12, 3, 0, 0, Math.PI * 2);
-  ink(ctx, "#78350f", 1.6);
-  for (const gx of [HEAD.x + 1, HEAD.x + 9]) {
-    ctx.beginPath();
-    ctx.arc(gx, HEAD.y - 9, 3.6, 0, Math.PI * 2);
-    ink(ctx, "#7dd3fc", 1.6);
-  }
   ctx.restore();
 
   // Fuselage
@@ -412,10 +434,10 @@ export function drawHeroPlane(ctx: CanvasRenderingContext2D, hero: Hero, x: numb
   ctx.lineTo(-22, 12);
   ctx.quadraticCurveTo(-36, 8, -36, -3);
   ctx.closePath();
-  ink(ctx, vGrad(ctx, -12, 14, hero.accent, 40, -45));
+  pen(ctx, vGrad(ctx, -12, 14, hero.accent, 40, -45));
   ctx.save();
   ctx.clip();
-  ctx.fillStyle = hero.shirt;
+  ctx.fillStyle = hero.tunic;
   ctx.fillRect(-40, 3, 80, 4);
   ctx.fillStyle = "rgba(255,255,255,0.5)";
   ctx.beginPath();
@@ -429,7 +451,7 @@ export function drawHeroPlane(ctx: CanvasRenderingContext2D, hero: Hero, x: numb
   ctx.quadraticCurveTo(-35, -25, -30, -22);
   ctx.lineTo(-20, -8);
   ctx.closePath();
-  ink(ctx, vGrad(ctx, -25, -5, hero.shirt));
+  pen(ctx, vGrad(ctx, -25, -5, hero.tunic));
   // Near wing
   ctx.beginPath();
   ctx.moveTo(-8, 6);
@@ -437,13 +459,13 @@ export function drawHeroPlane(ctx: CanvasRenderingContext2D, hero: Hero, x: numb
   ctx.quadraticCurveTo(-14, 26, -6, 23);
   ctx.lineTo(14, 6);
   ctx.closePath();
-  ink(ctx, vGrad(ctx, 6, 25, hero.shirt));
+  pen(ctx, vGrad(ctx, 6, 25, hero.tunic));
   ctx.fillStyle = "rgba(255,255,255,0.35)";
   ctx.fillRect(-12, 9, 18, 2.5);
   // Nose cone + propeller blur
   ctx.beginPath();
   ctx.arc(38, 2, 5, 0, Math.PI * 2);
-  ink(ctx, ballGrad(ctx, 38, 2, 5, "#94a3b8"), 2);
+  pen(ctx, ballGrad(ctx, 38, 2, 5, "#94a3b8"), 2);
   const blade = 4 + Math.abs(Math.sin(t * 45)) * 15;
   ctx.fillStyle = "rgba(30,30,50,0.45)";
   ctx.beginPath();

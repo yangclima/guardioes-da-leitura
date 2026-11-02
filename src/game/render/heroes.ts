@@ -1,6 +1,8 @@
 export type HairStyle = "curly" | "ponytail" | "short" | "bun" | "spiky";
-export type Accessory = "scarf" | "cap" | "glasses" | "headband" | "backpack";
+export type Headgear = "hood" | "nasal" | "feather" | "kettle" | "leather";
+export type Weapon = "dagger" | "sword" | "staff" | "spear" | "axe";
 
+/** A chibi adventurer, painted in an earthy storybook palette. */
 export interface Hero {
   id: string;
   name: string;
@@ -9,11 +11,20 @@ export interface Hero {
   eyes: string;
   hair: string;
   hairStyle: HairStyle;
-  shirt: string;
-  pants: string;
-  shoes: string;
+  /** Main garment; also the hero's card color. */
+  tunic: string;
+  trousers: string;
+  /** Boots, belt, bracers and straps. */
+  leather: string;
+  /** Base color of the hat, hood or helmet. */
+  hat: string;
+  /** Trim, shield paint and magic glow. */
   accent: string;
-  accessory: Accessory;
+  headgear: Headgear;
+  weapon: Weapon;
+  shield: boolean;
+  pack: boolean;
+  glasses: boolean;
 }
 
 export const HEROES: Hero[] = [
@@ -22,70 +33,95 @@ export const HEROES: Hero[] = [
     name: "Iara",
     title: "Caçadora de pistas",
     skin: "#c98b5e",
-    eyes: "#7a4a2a",
+    eyes: "#5a3520",
     hair: "#2b1a12",
     hairStyle: "curly",
-    shirt: "#ff7a45",
-    pants: "#3b4a8c",
-    shoes: "#ffffff",
-    accent: "#ffd23f",
-    accessory: "headband",
+    tunic: "#7a6a3c",
+    trousers: "#5a4632",
+    leather: "#7a4a2a",
+    hat: "#55703a",
+    accent: "#d9a441",
+    headgear: "hood",
+    weapon: "dagger",
+    shield: false,
+    pack: false,
+    glasses: false,
   },
   {
     id: "kaua",
     name: "Kauã",
     title: "Corredor destemido",
     skin: "#a8673f",
-    eyes: "#4a3020",
-    hair: "#151012",
+    eyes: "#3a2418",
+    hair: "#1d1410",
     hairStyle: "spiky",
-    shirt: "#2bb673",
-    pants: "#22324f",
-    shoes: "#ff4d4d",
-    accent: "#ffe066",
-    accessory: "scarf",
+    tunic: "#9c4a2e",
+    trousers: "#4a3b2c",
+    leather: "#6b4226",
+    hat: "#9aa3ab",
+    accent: "#c9a24a",
+    headgear: "nasal",
+    weapon: "sword",
+    shield: true,
+    pack: false,
+    glasses: false,
   },
   {
     id: "luna",
     name: "Luna",
     title: "Mestra das palavras",
     skin: "#f1c7a1",
-    eyes: "#7c3aed",
-    hair: "#7b3fa0",
+    eyes: "#4c2a6a",
+    hair: "#6d3f86",
     hairStyle: "ponytail",
-    shirt: "#5b6cff",
-    pants: "#2d2a4a",
-    shoes: "#ffd23f",
-    accent: "#ff8fd8",
-    accessory: "glasses",
+    tunic: "#4f5d7a",
+    trousers: "#3b3a4a",
+    leather: "#7a5233",
+    hat: "#4b6b3f",
+    accent: "#e9c46a",
+    headgear: "feather",
+    weapon: "staff",
+    shield: false,
+    pack: false,
+    glasses: true,
   },
   {
     id: "theo",
     name: "Theo",
     title: "Guardião das histórias",
     skin: "#e8b48a",
-    eyes: "#2f855a",
-    hair: "#c46a2b",
+    eyes: "#2f5a3a",
+    hair: "#b8642a",
     hairStyle: "short",
-    shirt: "#e63e6d",
-    pants: "#334155",
-    shoes: "#38bdf8",
-    accent: "#fef08a",
-    accessory: "cap",
+    tunic: "#6f7a45",
+    trousers: "#5b4a35",
+    leather: "#6e4529",
+    hat: "#5f7a3a",
+    accent: "#b5562f",
+    headgear: "kettle",
+    weapon: "spear",
+    shield: true,
+    pack: false,
+    glasses: false,
   },
   {
     id: "zoe",
     name: "Zoe",
     title: "Exploradora veloz",
     skin: "#8d5a3b",
-    eyes: "#b45309",
-    hair: "#1f1b2e",
+    eyes: "#3a2214",
+    hair: "#1f1b22",
     hairStyle: "bun",
-    shirt: "#14b8a6",
-    pants: "#5b21b6",
-    shoes: "#f97316",
-    accent: "#fde047",
-    accessory: "backpack",
+    tunic: "#3f6f6a",
+    trousers: "#544233",
+    leather: "#7d4f2c",
+    hat: "#8a5a34",
+    accent: "#d08a3a",
+    headgear: "leather",
+    weapon: "axe",
+    shield: false,
+    pack: true,
+    glasses: false,
   },
 ];
 

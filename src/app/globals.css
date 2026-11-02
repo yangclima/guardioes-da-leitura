@@ -35,7 +35,7 @@
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -92,13 +92,18 @@ kbd {
   box-shadow: var(--shadow-hard);
   text-decoration: none;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: transform var(--duration-fast) var(--ease-pop), box-shadow var(--duration-fast);
   white-space: nowrap;
 }
 
-.btn:hover:not(:disabled) {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 var(--ink);
+/* Hover lift only for real pointers: on touch it would "stick" after a tap. */
+@media (hover: hover) {
+  .btn:hover:not(:disabled) {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 var(--ink);
+  }
 }
 
 .btn:active:not(:disabled) {
@@ -130,8 +135,10 @@ kbd {
   box-shadow: none;
 }
 
-.btn-ghost:hover:not(:disabled) {
-  background: var(--card);
+@media (hover: hover) {
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--card);
+  }
 }
 
 .btn-lg {
@@ -194,6 +201,14 @@ kbd {
   border: var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-hard-lg);
+}
+
+/* Set by the game while it fills the screen on touch devices. */
+html.game-immersive,
+html.game-immersive body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  height: 100%;
 }
 
 .container {

@@ -9,6 +9,7 @@ import { api } from "@/lib/apiClient";
 import { DIFFICULTY_LABELS } from "@/lib/gameRules";
 import { MODE_LABELS, THEME_LABELS, type PublicPhase } from "@/lib/types";
 import { HeroSelect } from "./HeroSelect";
+import { enterImmersive, exitImmersive, PHONE_QUERY, PORTRAIT_QUERY, toggleFullscreen, TOUCH_QUERY, useMediaQuery, useWakeLock } from "./mobile";
 import { Hud } from "./Hud";
 import { QuestionModal } from "./QuestionModal";
 import { ResultPanel } from "./ResultPanel";
@@ -35,13 +36,21 @@ export function GameClient({ phase }: { phase: PublicPhase }) {
   const [end, setEnd] = useState<EndState | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [isTouch, setIsTouch] = useState(false);
+  const [isPortraitAllowed, setIsPortraitAllowed] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState("");
   const [runId, setRunId] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  const isTouch = useMediaQuery(TOUCH_QUERY);
+  const isPhone = useMediaQuery(PHONE_QUERY);
+  const isPortrait = useMediaQuery(PORTRAIT_QUERY);
+  // Touch devices play in a full-viewport layer (no site header, no page scroll).
+  const isImmersive = isTouch && screen !== "intro";
+  const needsRotate = isImmersive && isPhone && isPortrait && !isPortraitAllowed && screen === "playing";
+
+  useWakeLock(screen === "playing");
 
   useEffect(() => {
     if (screen !== "playing" || !canvasRef.current) return;
@@ -76,16 +85,37 @@ export function GameClient({ phase }: { phase: PublicPhase }) {
   }, [screen, runId, phase, heroId]);
 
   useEffect(() => {
-    engineRef.current?.setPaused(isPaused);
-  }, [isPaused]);
+    engineRef.current?.setPaused(isPaused || needsRotate);
+  }, [isPaused, needsRotate, runId]);
+
+  // Switching apps or locking the phone pauses instead of letting the hero die off-screen.
+  useEffect(() => {
+    if (screen !== "playing") return;
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") setIsPaused(true);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [screen]);
+
+  useEffect(() => {
+    if (!isImmersive) return;
+    const root = document.documentElement;
+    root.classList.add("game-immersive");
+    return () => {
+      root.classList.remove("game-immersive");
+      exitImmersive();
+    };
+  }, [isImmersive]);
 
   const startGame = async () => {
+    // Fullscreen needs the click's user activation, so it goes before any await.
+    if (isTouch) void enterImmersive(isPhone);
     setIsStarting(true);
     setError("");
     try {
       const data = await api<{ runToken: string }>(`/api/phases/${phase.slug}/run`, { method: "POST" });
       setRunToken(data.runToken);
-      setIsTouch(window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0);
       setIsMuted(localStorageMuted());
       setAnswers([]);
       setEnd(null);
@@ -94,6 +124,7 @@ export function GameClient({ phase }: { phase: PublicPhase }) {
       setRunId((n) => n + 1);
       setScreen("playing");
     } catch (e) {
+      if (screen === "intro") exitImmersive();
       setError(e instanceof Error ? e.message : "Não foi possível iniciar.");
     } finally {
       setIsStarting(false);
@@ -123,11 +154,11 @@ export function GameClient({ phase }: { phase: PublicPhase }) {
     }
   };
 
-  const toggleFullscreen = () => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void stage.requestFullscreen?.().catch(() => undefined);
+  const handleFullscreen = () => {
+    // Touch layouts already fill the viewport, so the whole page goes fullscreen;
+    // on desktop only the play area does.
+    const target = isTouch ? document.documentElement : stageRef.current;
+    if (target) toggleFullscreen(target);
   };
 
   const hero = heroById(heroId);
@@ -148,6 +179,26 @@ export function GameClient({ phase }: { phase: PublicPhase }) {
         </div>
         <h2 className={styles.sectionTitle}>Quem vai na aventura?</h2>
         <HeroSelect selected={heroId} onSelect={setHeroId} />
+        {isTouch ? (
+          <div className={styles.howTo}>
+            <div>
+              <b>Correr e pular</b>
+              <span>Deslize o polegar esquerdo no ◀ ▶ para andar · toque em ⤒ para pular · pule em cima dos inimigos!</span>
+            </div>
+            <div>
+              <b>Voar</b>
+              <span>Arraste o polegar esquerdo no direcional para desviar · o caminho segue sozinho</span>
+            </div>
+            <div>
+              <b>Portal ?</b>
+              <span>Cada portal traz uma pergunta. Errou? Perde um coração. ★ valem pontos extras.</span>
+            </div>
+            <div>
+              <b>Poder da leitura ✦</b>
+              <span>Toque em ✦ para lançar uma letra mágica. Recarrega com ★ e respostas certas. Dica: jogue com o celular deitado!</span>
+            </div>
+          </div>
+        ) : (
         <div className={styles.howTo}>
           <div>
             <b>Correr e pular</b>
@@ -166,6 +217,7 @@ export function GameClient({ phase }: { phase: PublicPhase }) {
             <span>X ou J lança uma letra mágica de curto alcance. A energia é pouca: recarrega com ★ e com respostas certas. Alguns obstáculos são imunes!</span>
           </div>
         </div>
+        )}
         {error && (
           <p className={styles.errorText} role="alert">
             {error}
@@ -186,16 +238,22 @@ export function GameClient({ phase }: { phase: PublicPhase }) {
   const gateQuestion = gateIndex !== null ? phase.questions[gateIndex] : null;
   const correctCount = answers.filter((a) => a.correct).length;
 
+  const playAreaClass = isImmersive ? `${styles.playArea} ${styles.immersive}` : styles.playArea;
+  const showTouch = isTouch && screen === "playing" && gateQuestion === null && !isPaused && !needsRotate;
+
   return (
     <section className={styles.play}>
-      <div ref={stageRef} className={styles.playArea}>
-      <div className={styles.stage}>
-        <div className={styles.canvasBox}>
-          <canvas ref={canvasRef} className={styles.canvas} aria-label={`Jogo: ${phase.title}`} />
+      <div ref={stageRef} className={playAreaClass}>
+        <div className={styles.stage}>
+          <div className={styles.canvasBox}>
+            <canvas ref={canvasRef} className={styles.canvas} aria-label={`Jogo: ${phase.title}`} />
+          </div>
+          {hud && (
+            <Hud hud={hud} heroName={hero.name} isMuted={isMuted} onToggleMute={toggleMute} onPause={() => setIsPaused(true)} onFullscreen={handleFullscreen} />
+          )}
         </div>
-        {hud && (
-          <Hud hud={hud} heroName={hero.name} isMuted={isMuted} onToggleMute={toggleMute} onPause={() => setIsPaused(true)} onFullscreen={toggleFullscreen} />
-        )}
+        {showTouch && <TouchControls flight={hud?.flight ?? false} onInput={handleTouch} />}
+        {/* Overlays live on the play area (not the canvas box) so they get the whole screen on phones. */}
         {isPaused && screen === "playing" && (
           <div className={styles.modalBackdrop}>
             <div className={styles.pauseCard} role="dialog" aria-modal="true" aria-label="Jogo pausado">
@@ -234,11 +292,22 @@ export function GameClient({ phase }: { phase: PublicPhase }) {
             onPlayAgain={() => void startGame()}
           />
         )}
+        {needsRotate && (
+          <div className={styles.rotateOverlay} role="dialog" aria-modal="true" aria-labelledby="rotate-title">
+            <div className={styles.rotatePhone} aria-hidden="true" />
+            <h2 id="rotate-title">Gire o celular</h2>
+            <p>Na horizontal o mundo fica maior e cada polegar ganha seus botões.</p>
+            <button type="button" className="btn" onClick={() => setIsPortraitAllowed(true)}>
+              Jogar na vertical mesmo
+            </button>
+          </div>
+        )}
       </div>
-      {isTouch && screen === "playing" && gateQuestion === null && !isPaused && <TouchControls flight={hud?.flight ?? false} onInput={handleTouch} />}
-      </div>
-      {isTouch && <p className={styles.rotateHint}>Controles na tela ativos: use os botões grandes para correr, pular e voar.</p>}
-      <p className={styles.footHint}>Dica: aperte <kbd>H</kbd> para ver as hitboxes · <kbd>P</kbd> pausa</p>
+      {!isTouch && (
+        <p className={styles.footHint}>
+          Dica: aperte <kbd>H</kbd> para ver as hitboxes · <kbd>P</kbd> pausa
+        </p>
+      )}
     </section>
   );
 }

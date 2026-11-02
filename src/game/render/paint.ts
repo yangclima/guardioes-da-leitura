@@ -19,15 +19,38 @@ export function alpha(hex: string, a: number): string {
   return `rgba(${r},${g},${b},${a})`;
 }
 
-export function ink(ctx: CanvasRenderingContext2D, fill: string | CanvasGradient, line = LINE): void {
+export function ink(ctx: CanvasRenderingContext2D, fill: string | CanvasGradient, line = LINE, stroke = OUTLINE): void {
   ctx.fillStyle = fill;
   ctx.fill();
   ctx.lineWidth = line;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.strokeStyle = OUTLINE;
+  ctx.strokeStyle = stroke;
   ctx.stroke();
 }
+
+/** Warm brown line used by the painted hero sprites. */
+export const WARM_INK = "#3b2416";
+
+/** Fill + thin warm outline, the painted-miniature look of the heroes. */
+export function pen(ctx: CanvasRenderingContext2D, fill: string | CanvasGradient, line = 1.9): void {
+  ink(ctx, fill, line, WARM_INK);
+}
+
+/** Soft airbrushed spot: a light (white) or occlusion (dark) blob that fades out. */
+export function softSpot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, rgb: readonly [number, number, number], a: number): void {
+  const [cr, cg, cb] = rgb;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${cr},${cg},${cb},${a})`);
+  g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+export const LIGHT = [255, 246, 220] as const;
+export const SHADOW = [70, 35, 15] as const;
 
 /** Vertical light-to-dark gradient, the base of the cel-shaded look. */
 export function vGrad(ctx: CanvasRenderingContext2D, y0: number, y1: number, base: string, light = 30, dark = -35): CanvasGradient {

@@ -21,7 +21,7 @@ export function HeroSelect({ selected, onSelect }: Props) {
             role="radio"
             aria-checked={isActive}
             className={isActive ? `${styles.heroCard} ${styles.heroCardActive}` : styles.heroCard}
-            style={{ ["--hero-color" as string]: hero.shirt }}
+            style={{ ["--hero-color" as string]: hero.tunic }}
             onClick={() => onSelect(hero.id)}
           >
             <HeroPortrait hero={hero} size={104} animate={isActive} state={isActive ? "run" : "idle"} />

@@ -29,10 +29,10 @@ export function HeroPortrait({ hero, size = 120, animate = true, state = "idle" 
       const t = (now - start) / 1000;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size, size);
-      const scale = size / 80;
+      const scale = size / 88;
       ctx.save();
       ctx.scale(scale, scale);
-      drawHero(ctx, hero, 40, 74, { state, t, facing: 1, squash: 0 });
+      drawHero(ctx, hero, 44, 84, { state, t, facing: 1, squash: 0 });
       ctx.restore();
       if (animate && !reduceMotion) raf = requestAnimationFrame(paint);
     };
